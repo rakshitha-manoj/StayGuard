@@ -1,0 +1,47 @@
+flowchart TB
+    RAW[("hotel_bookings.csv<br/>raw, 119,390 rows")]
+
+    subgraph S1["1 Ingestion"]
+        ING["src/ingest.py<br/>DVC tag v1-raw"]
+    end
+    subgraph S2["2 Preprocessing"]
+        VAL["src/validate.py"]
+        PRE["src/preprocess.py<br/>DVC tag v2-clean"]
+    end
+    subgraph S3["3 Training"]
+        TRN["src/train.py<br/>RF / SVM / KNN, seed 42"]
+    end
+    subgraph S4["4 Evaluation"]
+        EVA["src/evaluate.py<br/>F1, confusion matrix"]
+    end
+    subgraph S5["5 Deployment"]
+        DEP["deploy/deploy_vertex.py<br/>serving-env gate"]
+    end
+    subgraph S6["6 Monitoring"]
+        MON["src/monitor.py<br/>KS test / PSI"]
+    end
+
+    CLEAN[("hotel_bookings_clean.csv")]
+    MODEL[/"model.joblib"/]
+    BEST[/"best model + metrics"/]
+    EP(["Vertex AI endpoint<br/>us-central1"])
+
+    DVC{{"DVC + GCS remote"}}
+    FEAST{{"Feast<br/>offline + online store"}}
+    MLF{{"MLflow<br/>experiment StayGuard"}}
+    KFP{{"Kubeflow Pipelines v2<br/>orchestrates stages 1-5"}}
+    VTX{{"Vertex AI<br/>Model Registry"}}
+
+    RAW --> ING --> VAL --> PRE --> CLEAN --> TRN --> MODEL --> EVA --> BEST --> DEP --> EP
+    EP --> MON
+    MON -. "drift above threshold:<br/>retrain trigger" .-> KFP
+    KFP -. "re-run pipeline" .-> ING
+
+    DVC -.-> ING
+    DVC -.-> PRE
+    CLEAN -.-> FEAST
+    FEAST -.-> TRN
+    FEAST -.-> EP
+    TRN -.-> MLF
+    EVA -.-> MLF
+    DEP -.-> VTX
