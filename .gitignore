@@ -21,5 +21,7 @@ feature_repo/data/*.parquet
 .env
 *credentials*.json
 *service-account*.json
+*key*.json
+stayg-510316-*.json
 .DS_Store
 Thumbs.db

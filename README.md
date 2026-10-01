@@ -48,9 +48,10 @@ Download `hotel_bookings.csv` from Kaggle (login required) and place it at `data
 Remove the bucket and its contents with `deploy/teardown_bucket.ps1`, or:
 `gcloud storage rm --recursive gs://stayg-510316-stayguard-dvc`
 
+## Lifecycle design (coming in Phase 1)
 ## Data versioning and pipeline (coming in Phase 2)
 ## Experiment tracking and training (coming in Phase 3)
 ## Feature store (coming in Phase 4)
-## Orchestration and deployment (coming in Phase 5)
-## Monitoring (coming in Phase 6)
-## Results (coming later)
+## Kubeflow orchestration (coming in Phase 5)
+## Vertex AI deployment, cloud comparison and monitoring (coming in Phase 6)
+## Demo and results (coming in Phase 7)

@@ -3,7 +3,7 @@
 #   us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-6:latest  (sklearn 1.6)
 #   (doc: https://docs.cloud.google.com/vertex-ai/docs/predictions/pre-built-containers)
 # Note: only top-level packages are pinned; transitive deps float. The container runs
-# its own numpy/Python (3.10), so train with joblib and test a sample prediction in Phase 5.
+# its own numpy/Python (3.10), so train with joblib and test a sample prediction in Phase 6.
 pandas==2.3.3
 numpy==2.4.6
 scikit-learn==1.6.1

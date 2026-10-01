@@ -1,4 +1,4 @@
 """Undeploy the endpoint and delete Vertex AI resources.
 
-TODO(phase 5): implement teardown.
+TODO(phase 6): implement teardown.
 """
