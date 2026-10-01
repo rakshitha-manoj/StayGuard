@@ -1,0 +1,21 @@
+# StayGuard pins - installed and verified on Python 3.11.15 (uv venv), `uv pip check` clean.
+# scikit-learn matches the newest Vertex AI prebuilt sklearn prediction container:
+#   us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-6:latest  (sklearn 1.6)
+#   (doc: https://docs.cloud.google.com/vertex-ai/docs/predictions/pre-built-containers)
+# Note: only top-level packages are pinned; transitive deps float. The container runs
+# its own numpy/Python (3.10), so train with joblib and test a sample prediction in Phase 5.
+pandas==2.3.3
+numpy==2.4.6
+scikit-learn==1.6.1
+mlflow==3.16.1
+dvc==3.67.1
+dvc-gs==3.1.0
+feast==0.66.0
+kfp==2.16.1
+google-cloud-aiplatform==2.3.0
+scipy==1.17.1
+matplotlib==3.11.2
+seaborn==0.13.2
+jupyter==1.1.1
+joblib==1.6.0
+pyarrow==25.0.1

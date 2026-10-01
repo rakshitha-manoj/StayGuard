@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+mlruns/
+mlartifacts/
+mlflow.db
+
+# Data contents are tracked by DVC (.dvc pointer files stay committable);
+# .gitkeep keeps the folders in git.
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!*.dvc
+
+feature_repo/data/*.db
+feature_repo/data/*.parquet
+*.joblib
+*.pkl
+.env
+*credentials*.json
+*service-account*.json
+.DS_Store
+Thumbs.db
