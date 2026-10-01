@@ -1,47 +1,35 @@
 flowchart TB
-    RAW[("hotel_bookings.csv<br/>raw, 119,390 rows")]
-
-    subgraph S1["1 Ingestion"]
-        ING["src/ingest.py<br/>DVC tag v1-raw"]
+    subgraph R1["Data and training: stages 1-3"]
+        direction LR
+        RAW[("hotel_bookings.csv<br/>raw, 119,390 rows")]
+        ING["<b>1 Ingestion</b><br/>src/ingest.py"]
+        PRE["<b>2 Preprocessing</b><br/>src/validate.py<br/>src/preprocess.py"]
+        TRN["<b>3 Training</b><br/>src/train.py<br/>RF / SVM / KNN, seed 42"]
+        DVC{{"DVC + GCS remote"}}
+        FEAST{{"Feast offline store<br/>Parquet"}}
+        RAW --> ING
+        ING -- "DVC tag v1-raw" --> PRE
+        PRE -- "hotel_bookings_clean.csv<br/>DVC tag v2-clean" --> TRN
+        DVC -.-> ING
+        DVC -.-> PRE
+        PRE -.-> FEAST
+        FEAST -.-> TRN
     end
-    subgraph S2["2 Preprocessing"]
-        VAL["src/validate.py"]
-        PRE["src/preprocess.py<br/>DVC tag v2-clean"]
+    subgraph R2["Evaluation, serving and monitoring: stages 4-6"]
+        direction LR
+        EVA["<b>4 Evaluation</b><br/>src/evaluate.py<br/>F1, confusion matrix"]
+        DEP["<b>5 Deployment</b><br/>deploy/deploy_vertex.py<br/>serving-env gate"]
+        EP(["Vertex AI endpoint<br/>us-central1"])
+        MON["<b>6 Monitoring</b><br/>src/monitor.py<br/>KS test / PSI"]
+        FON{{"Feast online store<br/>SQLite"}}
+        KFP{{"Kubeflow Pipelines v2<br/>re-runs stages 1-5"}}
+        MLF{{"MLflow<br/>experiment StayGuard"}}
+        VTX{{"Vertex AI<br/>Model Registry"}}
+        EVA -- "best model + metrics" --> DEP
+        DEP --> EP --> MON
+        FON -.-> EP
+        MON -. "drift above threshold:<br/>retrain trigger" .-> KFP
+        EVA -.-> MLF
+        DEP -.-> VTX
     end
-    subgraph S3["3 Training"]
-        TRN["src/train.py<br/>RF / SVM / KNN, seed 42"]
-    end
-    subgraph S4["4 Evaluation"]
-        EVA["src/evaluate.py<br/>F1, confusion matrix"]
-    end
-    subgraph S5["5 Deployment"]
-        DEP["deploy/deploy_vertex.py<br/>serving-env gate"]
-    end
-    subgraph S6["6 Monitoring"]
-        MON["src/monitor.py<br/>KS test / PSI"]
-    end
-
-    CLEAN[("hotel_bookings_clean.csv")]
-    MODEL[/"model.joblib"/]
-    BEST[/"best model + metrics"/]
-    EP(["Vertex AI endpoint<br/>us-central1"])
-
-    DVC{{"DVC + GCS remote"}}
-    FEAST{{"Feast<br/>offline + online store"}}
-    MLF{{"MLflow<br/>experiment StayGuard"}}
-    KFP{{"Kubeflow Pipelines v2<br/>orchestrates stages 1-5"}}
-    VTX{{"Vertex AI<br/>Model Registry"}}
-
-    RAW --> ING --> VAL --> PRE --> CLEAN --> TRN --> MODEL --> EVA --> BEST --> DEP --> EP
-    EP --> MON
-    MON -. "drift above threshold:<br/>retrain trigger" .-> KFP
-    KFP -. "re-run pipeline" .-> ING
-
-    DVC -.-> ING
-    DVC -.-> PRE
-    CLEAN -.-> FEAST
-    FEAST -.-> TRN
-    FEAST -.-> EP
-    TRN -.-> MLF
-    EVA -.-> MLF
-    DEP -.-> VTX
+    R1 -- "model.joblib per run, logged to MLflow" --> R2

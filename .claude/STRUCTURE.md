@@ -34,7 +34,7 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml arrives in P
 | deploy/teardown.py | delete Vertex resources | 6 |
 | deploy/teardown_bucket.ps1 | delete DVC bucket (manual, confirmation prompt) | 0 |
 | report/lifecycle.md | lifecycle design doc | 1 |
-| report/lifecycle.mmd, report/lifecycle.png | diagram source and render (`npx -y @mermaid-js/mermaid-cli -i report/lifecycle.mmd -o report/lifecycle.png -b white -s 2`) | 1 |
+| report/lifecycle.mmd, report/lifecycle.png | diagram source and render (`npx -y @mermaid-js/mermaid-cli -i report/lifecycle.mmd -o report/lifecycle.png -b white -s 2 --size 2400`) | 1 |
 | notebooks/ | demo notebook | 7 |
 | report/ | cloud comparison (6), final write-up (7) | 1, 6, 7 |
 | requirements.txt | exact pins | 0 |
