@@ -5,3 +5,6 @@
 *.png binary
 *.pkl binary
 *.joblib binary
+# cache:false DVC outputs: written by Python on Windows (CRLF) and hashed in
+# dvc.lock as-is, so git must not convert them.
+reports_data/*.json -text
