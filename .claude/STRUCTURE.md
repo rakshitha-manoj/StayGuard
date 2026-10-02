@@ -19,6 +19,7 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 - .gitignore must ignore data *files* (`data/raw/*.csv`), never `data/raw/*`: DVC's matcher then treats the folder as ignored and silently skips its .dvc files. The v1-raw tag still has the bad pattern, so use `dvc checkout data/raw/hotel_bookings.csv.dvc` there (plain `dvc checkout` works at v2-clean and main)
 - .gitattributes forces LF everywhere (dvc.lock hashes src/*.py byte-for-byte); no `-text` exceptions. Processed CSV (to_csv lineterminator LF) and reports_data/*.json (write_text newline LF) are written LF, so md5s match on Windows and Linux
 - Processed CSV: 85,716 x 70, md5 0bd1d2070641efd38a0d1f526532b8da. Leaky columns (LEAKY_COLUMNS in validate.py): reservation_status, reservation_status_date, assigned_room_type (check-in; cancel rate 5.4% when differs from reserved vs 41.6% when equal). Exact duplicates (33,493) are dropped as the last preprocess step; validate_clean rejects duplicates and any leaky/assigned_room_type_* column
+- MLflow: tracking URI `sqlite:///<repo>/mlflow.db` (src/utils MLFLOW_TRACKING_URI, absolute), experiment "StayGuard", artifacts ./mlruns; mlflow.db and mlruns/ gitignored. Training is NOT in dvc.yaml (lineage = logged data_md5/dvc_tag/git_commit). MLflow 3.16 saves sklearn with skops, so the RF needs skops_trusted_types=["sklearn.tree._tree.Tree"] on log_model. UI: `mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000` (on Windows its worker processes can outlive the parent; kill leftover python.exe children if the port stays busy)
 
 ## Files
 | Path | Job | Phase |
@@ -32,8 +33,11 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 | dvc.yaml, dvc.lock | pipeline definition and locked hashes | 2 |
 | reports_data/ | machine-generated JSON: validation_raw/clean, preprocess_log | 2 |
 | report/dvc_comparison.md, report/dvc_diff.txt | v1 vs v2 write-up, `dvc diff` output | 2 |
-| src/train.py | train + MLflow logging | 3 |
-| src/evaluate.py | metrics, plots | 3 |
+| src/datasets.py | `load_dataset(version) -> (X, y, meta)`; `prepare_v1_minimal` (drop leaky cols, naive fill, one-hot, nothing else); meta has data_md5 and feature_names | 3 |
+| src/train.py | CLI `python -m src.train [--data-version v1-raw/v2-clean/all]`: RF / StandardScaler+LinearSVC / StandardScaler+KNN pipelines, 6 MLflow runs `<model>__<version>` | 3 |
+| src/evaluate.py | CLI `python -m src.evaluate`: latest run per pair -> report/mlflow_comparison.{csv,md}, charts, best v2-clean model by test F1 -> models/model.joblib + models/best_model.json + registry "StayGuard" | 3 |
+| report/mlflow_results.md | Phase 3 write-up and UI instructions | 3 |
+| models/ | model.joblib (gitignored, ~410 MB), best_model.json (committed metadata) | 3 |
 | src/monitor.py | drift / performance monitoring | 6 |
 | feature_repo/ | Feast definitions | 4 |
 | pipeline/kfp_pipeline.py | KFP pipeline | 5 |

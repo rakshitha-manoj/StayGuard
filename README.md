@@ -69,7 +69,19 @@ python -m src.data_report    # v1 vs v2 stats table
 
 Details, numbers and rollback commands: [report/dvc_comparison.md](report/dvc_comparison.md); `dvc diff` output: [report/dvc_diff.txt](report/dvc_diff.txt).
 
-## Experiment tracking and training (coming in Phase 3)
+## Experiment tracking and training
+
+Phase 3 trains RandomForest, LinearSVC (scaled) and KNN (scaled) on both data versions (6 runs, fixed hyperparameters) and tracks them in MLflow (`sqlite:///mlflow.db`, experiment `StayGuard`, artifacts in `mlruns/`; both gitignored). v1-raw gets only a minimal preparation (`prepare_v1_minimal` in `src/datasets.py`); v2-clean is used as is. Best v2-clean model by test F1: RandomForest (F1 0.677, accuracy 0.836), exported to `models/model.joblib` (gitignored) with metadata in `models/best_model.json` and registered as `StayGuard` in the MLflow Model Registry. Training is deliberately not a DVC stage; lineage is the logged `data_md5`, `dvc_tag` and `git_commit`.
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m src.train [--data-version v1-raw|v2-clean|all]   # about 6.5 min for all 6 runs
+python -m src.evaluate                                      # comparison table, charts, best-model export
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000   # http://127.0.0.1:5000
+```
+
+Rerunning `train` adds new runs; `evaluate` keeps the latest per (model, data version). Results, analysis and UI/screenshot instructions: [report/mlflow_results.md](report/mlflow_results.md); table in `report/mlflow_comparison.csv/.md`.
+
 ## Feature store (coming in Phase 4)
 ## Kubeflow orchestration (coming in Phase 5)
 ## Vertex AI deployment, cloud comparison and monitoring (coming in Phase 6)
