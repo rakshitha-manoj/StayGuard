@@ -76,12 +76,14 @@ The raw CSV is unchanged between the tags (same md5), so only the new processed 
 
 ## Benefits of data versioning
 
-- **Reproducibility.** A git commit pins the code, `params.yaml` and the exact data hashes (`.dvc` / `dvc.lock`). Checking out a tag and running `dvc pull && dvc repro` rebuilds the identical dataset.
-- **Rollback.** Go back to the raw data in two commands, then return:
+- **Reproducibility.** A git commit pins the code, `params.yaml` and the exact data hashes (`.dvc` / `dvc.lock`). Checking out a commit and running `dvc pull && dvc repro` rebuilds the identical dataset (at the two tags, pull the raw file by target: `dvc pull data/raw/hotel_bookings.csv.dvc`, see Rollback).
+- **Rollback.** Go back to the raw-only version, then return:
   ```
-  git checkout v1-raw && dvc checkout
+  git checkout v1-raw
+  dvc checkout data/raw/hotel_bookings.csv.dvc
   git checkout main && dvc checkout
   ```
+  Name the `.dvc` target explicitly when checking out either tag. Both tags predate a `.gitignore` fix: their `data/raw/*` pattern makes DVC skip the `data/raw/` folder, so a bare `dvc checkout` there deletes the raw CSV instead of restoring it. On `main` a bare `dvc checkout` / `dvc pull` works. On Windows with `core.autocrlf=true`, visiting a tag leaves CRLF copies of `src/*.py` behind (the tags predate `.gitattributes`). If `dvc status` on `main` then reports modified deps, run `git rm -r -q --cached . && git reset -q --hard`.
 - **Auditability.** Every change to the data is a git commit with a message, author and tag; `dvc diff v1-raw v2-clean` shows what changed, and the logged per-step row counts show why.
 - **Collaboration.** The data lives in a shared GCS remote while git holds only small pointer files. A teammate clones the repo and runs `dvc pull`, with no CSV emailing.
 - **Linking data to model runs.** In Phase 3 each MLflow run will log the data version tag and DVC md5 as params, so any model can be traced to the exact data it was trained on.

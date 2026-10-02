@@ -52,6 +52,7 @@ Remove the bucket and its contents with `deploy/teardown_bucket.ps1`, or:
 ## Lifecycle design
 
 Six-stage lifecycle design, stage table and diagram: [report/lifecycle.md](report/lifecycle.md) (diagram source `report/lifecycle.mmd`). Later stages are planned in Phases 2 to 6.
+
 ## Data versioning and pipeline
 
 Raw data is tagged `v1-raw`; the cleaned output of the DVC pipeline is tagged `v2-clean`. Pipeline stages (`dvc.yaml`): `validate_raw` -> `preprocess` -> `validate_clean`, parameters in `params.yaml`, machine-generated JSON in `reports_data/`.
