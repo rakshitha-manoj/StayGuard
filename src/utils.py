@@ -18,3 +18,10 @@ def set_seed(seed: int = SEED) -> None:
     """Seed Python's `random` and NumPy for reproducibility."""
     random.seed(seed)
     np.random.seed(seed)
+
+# MLflow: sqlite backend at the repo root (absolute, so any cwd works). Artifacts land in ./mlruns.
+MLFLOW_DB = PROJECT_ROOT / "mlflow.db"
+MLFLOW_TRACKING_URI = f"sqlite:///{MLFLOW_DB.as_posix()}"
+MLFLOW_ARTIFACT_ROOT = PROJECT_ROOT / "mlruns"
+MLFLOW_EXPERIMENT = "StayGuard"
+MLFLOW_REGISTERED_MODEL = "StayGuard"
