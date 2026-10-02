@@ -6,13 +6,12 @@ mlruns/
 mlartifacts/
 mlflow.db
 
-# Data contents are tracked by DVC (.dvc pointer files stay committable);
-# .gitkeep keeps the folders in git.
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!*.dvc
+# Data contents are tracked by DVC; .dvc pointer files and .gitkeep stay in git.
+# Ignore the data files themselves, not the folders: DVC's ignore matcher treats
+# a `data/raw/*` pattern as ignoring the data/raw/ directory itself, so it never
+# finds data/raw/*.dvc and untargeted push/pull/checkout silently skip the raw CSV.
+data/raw/*.csv
+data/processed/*.csv
 
 feature_repo/data/*.db
 feature_repo/data/*.parquet
