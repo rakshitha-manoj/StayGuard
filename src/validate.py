@@ -42,6 +42,20 @@ def _target_failures(df: pd.DataFrame) -> list[str]:
     return failures
 
 
+def _dtype_failures(df: pd.DataFrame) -> list[str]:
+    """Columns whose dtype kind contradicts EXPECTED_COLUMNS. Int and float count
+    as the same kind (a numeric column gains NaNs and becomes float)."""
+    wrong = []
+    for col, kind in EXPECTED_COLUMNS.items():
+        if col not in df.columns:
+            continue
+        actual = df[col].dtype.kind
+        ok = actual in "iuf" if kind in "if" else (actual == "O" or pd.api.types.is_string_dtype(df[col]))
+        if not ok:
+            wrong.append(f"{col} (expected kind '{kind}', got '{actual}')")
+    return [f"wrong column dtypes: {wrong}"] if wrong else []
+
+
 def validate_raw(df: pd.DataFrame) -> dict:
     """Validate the raw dataframe. Raises DataValidationError on hard failures,
     otherwise returns a report that includes soft-issue counts."""
@@ -49,6 +63,7 @@ def validate_raw(df: pd.DataFrame) -> dict:
     missing = [c for c in EXPECTED_COLUMNS if c not in df.columns]
     if missing:
         failures.append(f"missing expected columns: {missing}")
+    failures += _dtype_failures(df)
     if len(df) == 0:
         failures.append("dataframe is empty")
     failures += _target_failures(df)

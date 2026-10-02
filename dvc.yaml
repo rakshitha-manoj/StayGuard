@@ -15,6 +15,7 @@ stages:
     deps:
       - data/raw/hotel_bookings.csv
       - src/preprocess.py
+      - src/validate.py  # imports LEAKY_COLUMNS / TARGET from it
       - src/ingest.py
       - src/utils.py
     params:

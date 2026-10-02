@@ -2,7 +2,7 @@
 
 `EXPECTED_COLUMNS` is the schema contract for the raw Kaggle file; it maps each
 column to the dtype *kind* (numpy kind code: 'i' int, 'f' float, 'O' object)
-that pandas infers for it. `validate.py` checks column presence against it.
+that pandas infers for it. `validate.py` checks column presence and dtype kind.
 """
 from pathlib import Path
 

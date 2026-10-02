@@ -9,12 +9,12 @@ stages:
       size: 16855599
     - path: src/ingest.py
       hash: md5
-      md5: 162f273ee282aa78312db3fb26a058fc
-      size: 1647
+      md5: f7373250157ef51524253dd09bd74878
+      size: 1651
     - path: src/validate.py
       hash: md5
-      md5: 179bc94a0fcc8e9b3d59c92bd5fb2d09
-      size: 5024
+      md5: eb57fe60ca3ccbc64ff3ed8e37fc5711
+      size: 5686
     outs:
     - path: reports_data/validation_raw.json
       hash: md5
@@ -29,8 +29,8 @@ stages:
       size: 16855599
     - path: src/ingest.py
       hash: md5
-      md5: 162f273ee282aa78312db3fb26a058fc
-      size: 1647
+      md5: f7373250157ef51524253dd09bd74878
+      size: 1651
     - path: src/preprocess.py
       hash: md5
       md5: 158cdb44e556c68456c14e76a0cfdc7a
@@ -39,6 +39,10 @@ stages:
       hash: md5
       md5: e293d8df004977759af87b1518a5d8cf
       size: 553
+    - path: src/validate.py
+      hash: md5
+      md5: eb57fe60ca3ccbc64ff3ed8e37fc5711
+      size: 5686
     params:
       params.yaml:
         preprocess:
@@ -63,8 +67,8 @@ stages:
       size: 20588917
     - path: src/validate.py
       hash: md5
-      md5: 179bc94a0fcc8e9b3d59c92bd5fb2d09
-      size: 5024
+      md5: eb57fe60ca3ccbc64ff3ed8e37fc5711
+      size: 5686
     outs:
     - path: reports_data/validation_clean.json
       hash: md5
