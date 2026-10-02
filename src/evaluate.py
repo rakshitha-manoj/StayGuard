@@ -77,7 +77,9 @@ def f1_chart(df: pd.DataFrame, path) -> None:
     fig, ax = plt.subplots(figsize=(7, 4.5))
     width = 0.38
     for i, v in enumerate(versions):
-        vals = [df[(df.model == f) & (df.data_version == v)]["test_f1"].iloc[0] for f in fams]
+        if not (df.data_version == v).any():  # e.g. only `--data-version v2-clean` was trained
+            continue
+        vals =[df[(df.model == f) & (df.data_version == v)]["test_f1"].iloc[0] for f in fams]
         bars = ax.bar(np.arange(3) + (i - 0.5) * width, vals, width, label=v, color=colors[v])
         ax.bar_label(bars, fmt="%.3f", padding=2, fontsize=9)
     ax.set_xticks(range(3), [MODEL_NAMES[f] for f in fams])
