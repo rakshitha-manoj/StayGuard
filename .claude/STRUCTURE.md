@@ -16,7 +16,7 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 - GCP project stayg-510316, region us-central1
 - gcloud lives at C:\Users\raksh\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin (not on PATH)
 - Data (hotel_bookings.csv) is placed manually in data/raw/; contents gitignored, .dvc files committed
-- .gitignore must ignore data *files* (`data/raw/*.csv`), never `data/raw/*`: DVC's matcher then treats the folder as ignored and silently skips its .dvc files. The v1-raw/v2-clean tags still have the bad pattern, so use `dvc checkout data/raw/hotel_bookings.csv.dvc` there
+- .gitignore must ignore data *files* (`data/raw/*.csv`), never `data/raw/*`: DVC's matcher then treats the folder as ignored and silently skips its .dvc files. The v1-raw tag still has the bad pattern, so use `dvc checkout data/raw/hotel_bookings.csv.dvc` there (plain `dvc checkout` works at v2-clean and main)
 - .gitattributes forces LF everywhere (dvc.lock hashes src/*.py byte-for-byte); no `-text` exceptions. Processed CSV (to_csv lineterminator LF) and reports_data/*.json (write_text newline LF) are written LF, so md5s match on Windows and Linux
 - Processed CSV: 85,716 x 70, md5 0bd1d2070641efd38a0d1f526532b8da. Leaky columns (LEAKY_COLUMNS in validate.py): reservation_status, reservation_status_date, assigned_room_type (check-in; cancel rate 5.4% when differs from reserved vs 41.6% when equal). Exact duplicates (33,493) are dropped as the last preprocess step; validate_clean rejects duplicates and any leaky/assigned_room_type_* column
 
