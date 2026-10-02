@@ -1,0 +1,72 @@
+schema: '2.0'
+stages:
+  validate_raw:
+    cmd: python -m src.validate --stage raw
+    deps:
+    - path: data/raw/hotel_bookings.csv
+      hash: md5
+      md5: 5bf588c5a949443e021fb7c847d31b27
+      size: 16855599
+    - path: src/ingest.py
+      hash: md5
+      md5: 162f273ee282aa78312db3fb26a058fc
+      size: 1647
+    - path: src/validate.py
+      hash: md5
+      md5: 179bc94a0fcc8e9b3d59c92bd5fb2d09
+      size: 5024
+    outs:
+    - path: reports_data/validation_raw.json
+      hash: md5
+      md5: 4176b9346d1ec5b6f6b682daa0a070e1
+      size: 482
+  preprocess:
+    cmd: python -m src.preprocess
+    deps:
+    - path: data/raw/hotel_bookings.csv
+      hash: md5
+      md5: 5bf588c5a949443e021fb7c847d31b27
+      size: 16855599
+    - path: src/ingest.py
+      hash: md5
+      md5: 162f273ee282aa78312db3fb26a058fc
+      size: 1647
+    - path: src/preprocess.py
+      hash: md5
+      md5: 158cdb44e556c68456c14e76a0cfdc7a
+      size: 4475
+    - path: src/utils.py
+      hash: md5
+      md5: e293d8df004977759af87b1518a5d8cf
+      size: 553
+    params:
+      params.yaml:
+        preprocess:
+          adr_cap_quantile: 0.995
+          top_n_countries: 10
+        seed: 42
+    outs:
+    - path: data/processed/hotel_bookings_clean.csv
+      hash: md5
+      md5: aa03ef7c745ab4140676e5fc7b957a7f
+      size: 20588917
+    - path: reports_data/preprocess_log.json
+      hash: md5
+      md5: f0272fecee972db3597fbca6335ad2d7
+      size: 409
+  validate_clean:
+    cmd: python -m src.validate --stage clean
+    deps:
+    - path: data/processed/hotel_bookings_clean.csv
+      hash: md5
+      md5: aa03ef7c745ab4140676e5fc7b957a7f
+      size: 20588917
+    - path: src/validate.py
+      hash: md5
+      md5: 179bc94a0fcc8e9b3d59c92bd5fb2d09
+      size: 5024
+    outs:
+    - path: reports_data/validation_clean.json
+      hash: md5
+      md5: 6c03650c4d1e8b9b55de25aba964fe64
+      size: 134

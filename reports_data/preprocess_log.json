@@ -1,0 +1,23 @@
+{
+  "rows_in": 119390,
+  "children_nulls_imputed": 4,
+  "country_nulls_imputed": 488,
+  "removed_zero_guest_rows": 180,
+  "removed_negative_adr_rows": 1,
+  "adr_cap_value": 275.0,
+  "adr_values_capped": 588,
+  "countries_kept": [
+    "PRT",
+    "GBR",
+    "FRA",
+    "ESP",
+    "DEU",
+    "ITA",
+    "IRL",
+    "BEL",
+    "BRA",
+    "NLD"
+  ],
+  "rows_out": 119209,
+  "columns_out": 81
+}

@@ -1,0 +1,23 @@
+{
+  "stage": "raw",
+  "passed": true,
+  "rows": 119390,
+  "columns": 32,
+  "soft_issues": {
+    "nulls_per_column": {
+      "children": 4,
+      "country": 488,
+      "agent": 16340,
+      "company": 112593
+    },
+    "negative_adr_rows": 1,
+    "adr_above_cap_rows": 588,
+    "adr_cap_value": 275.0,
+    "zero_guest_rows": 180,
+    "duplicate_rows": 31994,
+    "leaky_columns_present": [
+      "reservation_status",
+      "reservation_status_date"
+    ]
+  }
+}

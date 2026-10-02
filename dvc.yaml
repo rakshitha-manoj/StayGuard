@@ -1,0 +1,34 @@
+# Stages call plain `python`, so run from an activated venv:
+#   .venv\Scripts\Activate.ps1 ; dvc repro
+stages:
+  validate_raw:
+    cmd: python -m src.validate --stage raw
+    deps:
+      - data/raw/hotel_bookings.csv
+      - src/validate.py
+      - src/ingest.py
+    outs:
+      - reports_data/validation_raw.json:
+          cache: false
+  preprocess:
+    cmd: python -m src.preprocess
+    deps:
+      - data/raw/hotel_bookings.csv
+      - src/preprocess.py
+      - src/ingest.py
+      - src/utils.py
+    params:
+      - seed
+      - preprocess
+    outs:
+      - data/processed/hotel_bookings_clean.csv
+      - reports_data/preprocess_log.json:
+          cache: false
+  validate_clean:
+    cmd: python -m src.validate --stage clean
+    deps:
+      - data/processed/hotel_bookings_clean.csv
+      - src/validate.py
+    outs:
+      - reports_data/validation_clean.json:
+          cache: false
