@@ -1,0 +1,11 @@
+project: stayguard
+provider: local
+# Relative paths resolve against this directory (feature_repo/), not the cwd.
+registry: data/registry.db
+online_store:
+  type: sqlite
+  path: data/online_store.db
+offline_store:
+  type: file
+# 3 is the current recommended value (Feast warns for anything lower).
+entity_key_serialization_version: 3

@@ -82,7 +82,21 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000   # http://127.0.0
 
 Rerunning `train` adds new runs; `evaluate` keeps the latest per (model, data version). Results, analysis and UI/screenshot instructions: [report/mlflow_results.md](report/mlflow_results.md); table in `report/mlflow_comparison.csv/.md`.
 
-## Feature store (coming in Phase 4)
+## Feature store
+
+Phase 4 puts three features (`lead_time`, `adr`, `previous_cancellations`) behind a Feast feature store in `feature_repo/`: entity `booking_id` (synthetic: row position in the v2-clean CSV), one `booking_features` view over a Parquet source (`event_timestamp` = arrival date), a `stayguard_model_v1` FeatureService, SQLite online store. A demo fetches the same features point-in-time correct for training and online for one booking at inference, and checks they match the CSV (PASS). Here Feast demonstrates the pattern; `src/train.py` still loads the CSV, and the model uses 69 features, not 3.
+
+```powershell
+python -m src.feast_features prepare                       # writes feature_repo/data/*.parquet (gitignored)
+cd feature_repo
+feast apply
+feast materialize 2015-07-01T00:00:00 2017-09-01T00:00:00  # about 35 s
+cd ..
+python -m src.feast_features demo                          # -> reports_data/feast_demo.txt
+```
+
+Write-up with captured outputs and the consistency explanation: [report/feast.md](report/feast.md).
+
 ## Kubeflow orchestration (coming in Phase 5)
 ## Vertex AI deployment, cloud comparison and monitoring (coming in Phase 6)
 ## Demo and results (coming in Phase 7)

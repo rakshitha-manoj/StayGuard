@@ -1,0 +1,36 @@
+=== Shared definition ===
+FeatureView: booking_features | entities: ['booking_id'] | ttl: 0:00:00 | online: True
+features: ['lead_time:Int64', 'adr:Float32', 'previous_cancellations:Int64']
+FeatureService: stayguard_model_v1 -> views: ['booking_features']
+Feature refs used by BOTH calls below: ['booking_features:lead_time', 'booking_features:adr', 'booking_features:previous_cancellations']
+
+=== 1. Historical (training) fetch, point-in-time correct ===
+ booking_id           event_timestamp  is_canceled  lead_time        adr  previous_cancellations
+          0 2015-07-01 00:00:00+00:00            0        342   0.000000                       0
+       1000 2015-08-12 00:00:00+00:00            1         33 191.000000                       0
+      20000 2016-06-02 00:00:00+00:00            0        105  64.900002                       0
+      50000 2017-07-05 00:00:00+00:00            1        169  89.400002                       0
+      85715 2017-08-29 00:00:00+00:00            0        205 151.199997                       0
+
+=== 1b. Point-in-time check: same 5 bookings, booking 20000 requested 1 day BEFORE its event ===
+ booking_id           event_timestamp  is_canceled  lead_time        adr  previous_cancellations
+          0 2015-07-01 00:00:00+00:00            0        342   0.000000                       0
+       1000 2015-08-12 00:00:00+00:00            1         33 191.000000                       0
+      50000 2017-07-05 00:00:00+00:00            1        169  89.400002                       0
+      85715 2017-08-29 00:00:00+00:00            0        205 151.199997                       0
+rows requested: 5, returned: 4; rows for booking 20000: 0 (a leak would show lead_time=105 etc.); other 4 bookings unchanged: True
+
+=== 1c. Null example: booking_id that has no feature row at all ===
+ booking_id           event_timestamp  is_canceled  lead_time  adr  previous_cancellations
+   10000000 2017-09-01 00:00:00+00:00            0        NaN  NaN                     NaN
+PIT check: PASS (no future value leaked into the past)
+
+=== 2. Online (inference) fetch for one booking ===
+{'booking_id': [20000], 'lead_time': [105], 'adr': [64.9000015258789], 'previous_cancellations': [0]}
+Same call via the FeatureService: {'booking_id': [20000], 'lead_time': [105], 'adr': [64.9000015258789], 'previous_cancellations': [0]}
+
+=== 3. Consistency check for booking_id=20000 ===
+lead_time                online=       105 historical=       105 csv=     105.0 OK
+adr                      online=64.9000015258789 historical=64.9000015258789 csv=      64.9 OK
+previous_cancellations   online=         0 historical=         0 csv=       0.0 OK
+CONSISTENCY CHECK: PASS

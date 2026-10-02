@@ -39,7 +39,9 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 | report/mlflow_results.md | Phase 3 write-up and UI instructions | 3 |
 | models/ | model.joblib (gitignored, ~65 MB, joblib compress=3), best_model.json (committed metadata) | 3 |
 | src/monitor.py | drift / performance monitoring | 6 |
-| feature_repo/ | Feast definitions | 4 |
+| feature_repo/ | Feast repo: feature_store.yaml (local, sqlite online, file offline, key serialization v3), features.py (Entity booking_id, FileSource, FeatureView booking_features = lead_time/adr/previous_cancellations with ttl 0, FeatureService stayguard_model_v1). data/ holds generated parquet + registry.db/online_store.db (gitignored, .gitkeep kept) | 4 |
+| src/feast_features.py | CLI `python -m src.feast_features prepare / demo / training-frame`; demo writes reports_data/feast_demo.txt. Run `feast apply` and `feast materialize 2015-07-01T00:00:00 2017-09-01T00:00:00` from feature_repo/ between prepare and demo | 4 |
+| report/feast.md | Phase 4 write-up with captured outputs | 4 |
 | pipeline/kfp_pipeline.py | KFP pipeline | 5 |
 | deploy/deploy_vertex.py | deploy model to Vertex endpoint | 6 |
 | deploy/predict_sample.py | sample endpoint request | 6 |
@@ -50,5 +52,11 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 | notebooks/ | demo notebook | 7 |
 | report/ | cloud comparison (6), final write-up (7) | 1, 6, 7 |
 | requirements.txt | exact pins | 0 |
+
+## Feast notes
+- booking_id = row index in v2-clean (stable only for md5 0bd1d207...); is_canceled kept out of the feature source (labels.parquet, joined via entity_df)
+- ttl=timedelta(0) = no lookback limit in PIT joins. Feast 0.66's SQLite online read does NOT apply ttl (verified with 3650d). Use `feast materialize <start> <end>`, not materialize-incremental (its first window is now-ttl or 1 year)
+- File (=Dask) offline store 0.66 drops an entity row whose only feature rows are after its timestamp (dask.py `_merge` left-joins on key only, then `_filter_ttl` removes the future candidate); unknown keys get NaN rows. Check row counts after get_historical_features
+- `feast` CLI must run in feature_repo/ (or `-c feature_repo`); the python helper uses an absolute repo_path
 
 Update this file when a module moves or changes job.
