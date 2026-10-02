@@ -7,6 +7,7 @@ StayGuard predicts whether a hotel booking will be canceled (`is_canceled`) usin
 ```
 data/raw/            raw CSV (DVC-tracked, contents gitignored)
 data/processed/      processed data (DVC-tracked, contents gitignored)
+reports_data/        machine-generated JSON (validation, preprocessing log)
 src/                 ingest, validate, preprocess, train, evaluate, monitor, utils
 feature_repo/        Feast feature repository
 pipeline/            Kubeflow Pipelines definition
@@ -51,7 +52,20 @@ Remove the bucket and its contents with `deploy/teardown_bucket.ps1`, or:
 ## Lifecycle design
 
 Six-stage lifecycle design, stage table and diagram: [report/lifecycle.md](report/lifecycle.md) (diagram source `report/lifecycle.mmd`). Later stages are planned in Phases 2 to 6.
-## Data versioning and pipeline (coming in Phase 2)
+## Data versioning and pipeline
+
+Raw data is tagged `v1-raw`; the cleaned output of the DVC pipeline is tagged `v2-clean`. Pipeline stages (`dvc.yaml`): `validate_raw` -> `preprocess` -> `validate_clean`, parameters in `params.yaml`, machine-generated JSON in `reports_data/`.
+
+```powershell
+.venv\Scripts\Activate.ps1   # stages call plain `python`
+dvc pull                     # fetch data from the GCS remote
+dvc repro                    # run the pipeline
+dvc diff v1-raw v2-clean     # compare dataset versions
+python -m src.data_report    # v1 vs v2 stats table
+```
+
+Details, numbers and rollback commands: [report/dvc_comparison.md](report/dvc_comparison.md); `dvc diff` output: [report/dvc_diff.txt](report/dvc_diff.txt).
+
 ## Experiment tracking and training (coming in Phase 3)
 ## Feature store (coming in Phase 4)
 ## Kubeflow orchestration (coming in Phase 5)
