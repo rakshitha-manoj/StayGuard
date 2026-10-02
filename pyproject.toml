@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stayguard"
+version = "0.1.0"
+description = "StayGuard: hotel booking cancellation MLOps project (runtime package used by pipeline steps)"
+requires-python = ">=3.10"
+# Minimal runtime set for the Kubeflow steps. Deliberately excludes feast, dvc, kfp, aiplatform.
+dependencies = [
+    "pandas",
+    "numpy",
+    "scikit-learn==1.6.1",
+    "joblib",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+mlflow = ["mlflow", "matplotlib"]
+
+[tool.setuptools]
+packages = ["src"]

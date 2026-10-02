@@ -1,0 +1,24 @@
+%%{init: {"flowchart": {"rankSpacing": 45, "nodeSpacing": 35, "wrappingWidth": 400}}}%%
+flowchart LR
+    DC["<b>1. data_collection</b><br/>copy or download<br/>raw CSV; fail if md5<br/>differs from DVC"]
+    DV["<b>2. data_validation</b><br/>validate_raw<br/>preprocess<br/>validate_clean"]
+    TR["<b>3. training</b><br/>stratified 80/20 split<br/>RandomForest fit<br/>cpu 2-4, mem 4-8 GB"]
+    EV["<b>4. evaluation</b><br/>same split<br/>score test set"]
+    C{"dsl.If<br/>f1 &gt;<br/>f1_threshold?"}
+    DP["<b>5. deployment</b><br/>dry_run: load model.joblib,<br/>predict numpy array<br/>(vertex: Phase 6)"]
+    SKIP(["deployment skipped,<br/>run still succeeds"])
+    M1[/"validation_metrics<br/>(Metrics)"/]
+    M2[/"metrics (Metrics)<br/>confusion_matrix<br/>(ClassificationMetrics)"/]
+    OUT[/"deployment_record<br/>(Artifact)"/]
+
+    DC -- "raw_data<br/>(Dataset)" --> DV
+    DV -- "clean_data<br/>(Dataset)" --> TR
+    DV -- "clean_data" --> EV
+    TR -- "model<br/>(Model)" --> EV
+    EV -- "f1<br/>(float)" --> C
+    C -- "true" --> DP
+    C -- "false" --> SKIP
+    TR -- "model (Model)" --> DP
+    DP --> OUT
+    DV -.-> M1
+    EV -.-> M2

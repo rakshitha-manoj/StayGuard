@@ -24,3 +24,5 @@ feature_repo/data/*.parquet
 stayg-510316-*.json
 .DS_Store
 Thumbs.db
+*.egg-info/
+pipeline/local_runs/

@@ -97,6 +97,26 @@ python -m src.feast_features demo                          # -> reports_data/fea
 
 Write-up with captured outputs and the consistency explanation: [report/feast.md](report/feast.md).
 
-## Kubeflow orchestration (coming in Phase 5)
+## Kubeflow orchestration
+
+A KFP v2 pipeline with five components (data_collection, data_validation, training, evaluation, deployment) and a `dsl.If` gate: deployment runs only if evaluation F1 beats `f1_threshold` (default 0.60). Write-up with DAG and captured outputs: [report/kubeflow.md](report/kubeflow.md).
+
+```powershell
+uv pip install --python .venv -e .                        # makes `src` importable (minimal runtime deps)
+python -m pipeline.kfp_pipeline compile                   # -> pipeline/stayguard_pipeline.yaml
+python -m pipeline.kfp_pipeline compile --ref <sha>       # pin the code the cluster installs
+python -m pipeline.run_local --mode kfp-local             # KFP's local runner
+python -m pipeline.run_local --mode simulate              # plain-Python simulation
+python -m pipeline.run_local --mode kfp-local --f1-threshold 0.99   # condition false: deployment skipped
+```
+
+Which mode is which:
+
+- **Compiled YAML**: for a real KFP / Vertex Pipelines cluster. Compiled and parsed, **never submitted or run on a cluster**.
+- **`kfp-local`**: really executes the pipeline with KFP's own local runner (separate subprocess per component, KFP artifacts, `dsl.If`), but it is not a cluster (no containers or resource limits). It needs small in-process patches for kfp 2.16 on Windows and for its `dsl.If` evaluation; see the report.
+- **`simulate`**: calls the same component functions in order in plain Python with artifact stand-ins; no KFP runtime.
+
+Both local modes reproduce the v2-clean md5 (`0bd1d207...`) and RF test F1 0.6767. Run outputs go to `pipeline/local_runs/` (gitignored). `deploy_mode="vertex"` is a stub until Phase 6.
+
 ## Vertex AI deployment, cloud comparison and monitoring (coming in Phase 6)
 ## Demo and results (coming in Phase 7)

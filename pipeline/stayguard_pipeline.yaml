@@ -1,0 +1,581 @@
+# PIPELINE DEFINITION
+# Name: stayguard-pipeline
+# Description: StayGuard: collect -> validate/clean -> train -> evaluate -> (if F1 > threshold) deploy
+# Inputs:
+#    adr_cap_quantile: float [Default: 0.995]
+#    deploy_mode: str [Default: 'dry_run']
+#    expected_md5: str [Default: '5bf588c5a949443e021fb7c847d31b27']
+#    f1_threshold: float [Default: 0.6]
+#    mlflow_tracking_uri: str [Default: '']
+#    n_estimators: int [Default: 200.0]
+#    seed: int [Default: 42.0]
+#    source_uri: str
+#    top_n_countries: int [Default: 10.0]
+components:
+  comp-condition-1:
+    dag:
+      tasks:
+        deployment:
+          cachingOptions: {}
+          componentRef:
+            name: comp-deployment
+          inputs:
+            artifacts:
+              model:
+                componentInputArtifact: pipelinechannel--training-model
+            parameters:
+              deploy_mode:
+                componentInputParameter: pipelinechannel--deploy_mode
+              f1:
+                componentInputParameter: pipelinechannel--evaluation-f1
+              target_image:
+                runtimeValue:
+                  constant: us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-6:latest
+          taskInfo:
+            name: Deployment
+    inputDefinitions:
+      artifacts:
+        pipelinechannel--training-model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        pipelinechannel--deploy_mode:
+          parameterType: STRING
+        pipelinechannel--evaluation-f1:
+          parameterType: NUMBER_DOUBLE
+        pipelinechannel--f1_threshold:
+          parameterType: NUMBER_DOUBLE
+  comp-data-collection:
+    executorLabel: exec-data-collection
+    inputDefinitions:
+      parameters:
+        expected_md5:
+          parameterType: STRING
+        source_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        raw_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-data-validation:
+    executorLabel: exec-data-validation
+    inputDefinitions:
+      artifacts:
+        raw_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        adr_cap_quantile:
+          parameterType: NUMBER_DOUBLE
+        top_n_countries:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        clean_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        validation_metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+  comp-deployment:
+    executorLabel: exec-deployment
+    inputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        deploy_mode:
+          parameterType: STRING
+        f1:
+          parameterType: NUMBER_DOUBLE
+        target_image:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        deployment_record:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-evaluation:
+    executorLabel: exec-evaluation
+    inputDefinitions:
+      artifacts:
+        clean_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        seed:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        confusion_matrix:
+          artifactType:
+            schemaTitle: system.ClassificationMetrics
+            schemaVersion: 0.0.1
+        metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+      parameters:
+        accuracy:
+          parameterType: NUMBER_DOUBLE
+        f1:
+          parameterType: NUMBER_DOUBLE
+  comp-training:
+    executorLabel: exec-training
+    inputDefinitions:
+      artifacts:
+        clean_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        mlflow_tracking_uri:
+          parameterType: STRING
+        n_estimators:
+          parameterType: NUMBER_INTEGER
+        seed:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-data-collection:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - data_collection
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'stayguard @\
+          \ https://github.com/rakshitha-manoj/StayGuard/archive/main.zip' 'google-cloud-storage'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef data_collection(source_uri: str, expected_md5: str, raw_data:\
+          \ Output[Dataset]):\n    \"\"\"Fetch the raw CSV (local path or gs://),\
+          \ verify its md5 against the DVC pointer.\"\"\"\n    import hashlib\n  \
+          \  import shutil\n\n    if source_uri.startswith(\"gs://\"):\n        from\
+          \ google.cloud import storage  # only needed (and installed) for gs:// sources\n\
+          \        bucket_name, _, blob_name = source_uri[len(\"gs://\"):].partition(\"\
+          /\")\n        storage.Client().bucket(bucket_name).blob(blob_name).download_to_filename(raw_data.path)\n\
+          \    else:\n        shutil.copyfile(source_uri, raw_data.path)\n\n    h\
+          \ = hashlib.md5()\n    with open(raw_data.path, \"rb\") as f:\n        for\
+          \ chunk in iter(lambda: f.read(1 << 20), b\"\"):\n            h.update(chunk)\n\
+          \    actual = h.hexdigest()\n    if actual != expected_md5:\n        raise\
+          \ RuntimeError(f\"raw data md5 mismatch for {source_uri}: expected {expected_md5},\
+          \ \"\n                           f\"got {actual}. Refusing to continue with\
+          \ unexpected data.\")\n\n    from src.ingest import load_raw\n    rows =\
+          \ len(load_raw(raw_data.path))\n    raw_data.metadata.update({\"source_uri\"\
+          : source_uri, \"md5\": actual, \"rows\": rows})\n    print(f\"data_collection\
+          \ ok: {rows} rows, md5 {actual}\")\n\n"
+        image: python:3.11-slim
+    exec-data-validation:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - data_validation
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'stayguard @\
+          \ https://github.com/rakshitha-manoj/StayGuard/archive/main.zip'  &&  python3\
+          \ -m pip install --quiet --no-warn-script-location 'kfp==2.16.1' '--no-deps'\
+          \ 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\
+          \n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef data_validation(raw_data: Input[Dataset], adr_cap_quantile: float,\
+          \ top_n_countries: int,\n                    clean_data: Output[Dataset],\
+          \ validation_metrics: Output[Metrics]):\n    \"\"\"validate_raw -> preprocess\
+          \ -> validate_clean. Raises (fails the run) on bad data.\n\n    Preprocessing\
+          \ lives here because the pipeline has exactly five stages; this step is\n\
+          \    'validate + clean + re-validate' and acts as the data quality gate.\n\
+          \    \"\"\"\n    import hashlib\n\n    from src.ingest import load_raw\n\
+          \    from src.preprocess import preprocess\n    from src.validate import\
+          \ validate_clean, validate_raw\n\n    df = load_raw(raw_data.path)\n   \
+          \ validate_raw(df)  # raises DataValidationError on hard failures\n    log:\
+          \ dict = {}\n    clean = preprocess(df, {\"adr_cap_quantile\": adr_cap_quantile,\n\
+          \                            \"top_n_countries\": top_n_countries}, log)\n\
+          \    clean_report = validate_clean(clean)  # strict; raises on any violation\n\
+          \    clean.to_csv(clean_data.path, index=False, lineterminator=\"\\n\")\
+          \  # LF => platform-stable md5\n\n    with open(clean_data.path, \"rb\"\
+          ) as f:\n        md5 = hashlib.md5(f.read()).hexdigest()\n    clean_data.metadata.update({\"\
+          md5\": md5, \"rows\": clean_report[\"rows\"],\n                        \
+          \        \"columns\": clean_report[\"columns\"]})\n    validation_metrics.log_metric(\"\
+          raw_rows\", int(log[\"rows_in\"]))\n    validation_metrics.log_metric(\"\
+          clean_rows\", clean_report[\"rows\"])\n    validation_metrics.log_metric(\"\
+          clean_columns\", clean_report[\"columns\"])\n    validation_metrics.log_metric(\"\
+          rows_removed\", int(log[\"rows_in\"]) - clean_report[\"rows\"])\n    validation_metrics.log_metric(\"\
+          clean_cancel_rate\", clean_report[\"cancel_rate\"])\n    print(f\"data_validation\
+          \ ok: {log['rows_in']} -> {clean_report['rows']} rows, md5 {md5}\")\n\n"
+        image: python:3.11-slim
+    exec-deployment:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - deployment
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'stayguard @\
+          \ https://github.com/rakshitha-manoj/StayGuard/archive/main.zip'  &&  python3\
+          \ -m pip install --quiet --no-warn-script-location 'kfp==2.16.1' '--no-deps'\
+          \ 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\
+          \n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef deployment(model: Input[Model], f1: float, deploy_mode: str,\
+          \ target_image: str,\n               deployment_record: Output[Artifact]):\n\
+          \    \"\"\"Gate-passed model -> deployment. dry_run proves the artifact\
+          \ is servable and writes a record.\n\n    'vertex' mode (upload + endpoint)\
+          \ is wired in Phase 6.\n    \"\"\"\n    import datetime\n    import json\n\
+          \    import os\n\n    import joblib\n    import numpy as np\n    import\
+          \ sklearn\n\n    if deploy_mode == \"vertex\":\n        raise NotImplementedError(\"\
+          wired in Phase 6\")\n    if deploy_mode != \"dry_run\":\n        raise ValueError(f\"\
+          unknown deploy_mode {deploy_mode!r}; expected 'dry_run' or 'vertex'\")\n\
+          \n    path = os.path.join(model.path, \"model.joblib\")\n    pipe = joblib.load(path)\n\
+          \    # Vertex's sklearn container feeds a plain positional numpy array,\
+          \ so test exactly that.\n    sample = np.zeros((2, int(pipe.n_features_in_)))\n\
+          \    pred = pipe.predict(sample)\n    if pred.shape != (2,):\n        raise\
+          \ RuntimeError(f\"unexpected prediction shape {pred.shape}\")\n\n    record\
+          \ = {\"mode\": deploy_mode, \"model_uri\": model.uri, \"model_file\": \"\
+          model.joblib\",\n              \"model_size_mb\": round(os.path.getsize(path)\
+          \ / 1e6, 1), \"f1\": f1,\n              \"n_features\": int(pipe.n_features_in_),\
+          \ \"sample_prediction\": pred.tolist(),\n              \"sklearn_version\"\
+          : sklearn.__version__, \"target_container_uri\": target_image,\n       \
+          \       \"timestamp\": datetime.datetime.now(datetime.timezone.utc).isoformat()}\n\
+          \    with open(deployment_record.path, \"w\") as f:\n        json.dump(record,\
+          \ f, indent=2)\n    deployment_record.metadata.update({\"mode\": deploy_mode,\
+          \ \"f1\": f1})\n    print(\"deployment (dry_run) ok:\", json.dumps(record))\n\
+          \n"
+        image: python:3.11-slim
+    exec-evaluation:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluation
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'stayguard @\
+          \ https://github.com/rakshitha-manoj/StayGuard/archive/main.zip'  &&  python3\
+          \ -m pip install --quiet --no-warn-script-location 'kfp==2.16.1' '--no-deps'\
+          \ 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\
+          \n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluation(clean_data: Input[Dataset], model: Input[Model], seed:\
+          \ int,\n               metrics: Output[Metrics], confusion_matrix: Output[ClassificationMetrics]\n\
+          \               ) -> NamedTuple(\"EvalOutputs\", [(\"f1\", float), (\"accuracy\"\
+          , float)]):\n    \"\"\"Recompute the same seeded split, score the held-out\
+          \ test set.\"\"\"\n    import os\n    from collections import namedtuple\n\
+          \n    import joblib\n    import pandas as pd\n    from sklearn.metrics import\
+          \ accuracy_score, f1_score\n    from sklearn.metrics import confusion_matrix\
+          \ as sk_cm\n\n    from src.models import split_xy\n\n    df = pd.read_csv(clean_data.path)\n\
+          \    X = df[[c for c in df.columns if c != \"is_canceled\"]].to_numpy(dtype=\"\
+          float64\")\n    y = df[\"is_canceled\"].to_numpy(dtype=int)\n    _, X_te,\
+          \ _, y_te = split_xy(X, y, seed)\n\n    pipe = joblib.load(os.path.join(model.path,\
+          \ \"model.joblib\"))\n    pred = pipe.predict(X_te)\n    f1 = float(f1_score(y_te,\
+          \ pred, pos_label=1))\n    acc = float(accuracy_score(y_te, pred))\n   \
+          \ metrics.log_metric(\"f1\", f1)\n    metrics.log_metric(\"accuracy\", acc)\n\
+          \    metrics.log_metric(\"n_test\", int(len(y_te)))\n    confusion_matrix.log_confusion_matrix([\"\
+          not_canceled\", \"canceled\"],\n                                       \
+          \   sk_cm(y_te, pred, labels=[0, 1]).tolist())\n    print(f\"evaluation\
+          \ ok: f1={f1:.4f} accuracy={acc:.4f}\")\n    return namedtuple(\"EvalOutputs\"\
+          , [\"f1\", \"accuracy\"])(f1, acc)\n\n"
+        image: python:3.11-slim
+    exec-training:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - training
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'stayguard @\
+          \ https://github.com/rakshitha-manoj/StayGuard/archive/main.zip'  &&  python3\
+          \ -m pip install --quiet --no-warn-script-location 'kfp==2.16.1' '--no-deps'\
+          \ 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\
+          \n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef training(clean_data: Input[Dataset], seed: int, n_estimators:\
+          \ int, mlflow_tracking_uri: str,\n             model: Output[Model]):\n\
+          \    \"\"\"Stratified 80/20 split, fit the RandomForest pipeline, save <model.path>/model.joblib.\n\
+          \n    A directory containing a file named exactly model.joblib is what Vertex's\
+          \ prebuilt sklearn\n    container expects. If mlflow_tracking_uri is set\
+          \ (local runs only) a run tagged\n    source=kfp_pipeline is logged to the\
+          \ 'StayGuard' experiment.\n    \"\"\"\n    import os\n    import time\n\n\
+          \    import joblib\n    import pandas as pd\n\n    from src.models import\
+          \ build_models, split_xy\n\n    df = pd.read_csv(clean_data.path)\n    feature_names\
+          \ = [c for c in df.columns if c != \"is_canceled\"]\n    X = df[feature_names].to_numpy(dtype=\"\
+          float64\")\n    y = df[\"is_canceled\"].to_numpy(dtype=int)\n    X_tr, X_te,\
+          \ y_tr, y_te = split_xy(X, y, seed)\n\n    pipe = build_models(n_estimators=n_estimators,\
+          \ seed=seed)[\"rf\"]\n    t0 = time.perf_counter()\n    pipe.fit(X_tr, y_tr)\n\
+          \    fit_seconds = time.perf_counter() - t0\n\n    os.makedirs(model.path,\
+          \ exist_ok=True)\n    joblib.dump(pipe, os.path.join(model.path, \"model.joblib\"\
+          ), compress=3)\n    model.metadata.update({\"framework\": \"sklearn\", \"\
+          model_family\": \"rf\", \"seed\": seed,\n                           \"n_estimators\"\
+          : n_estimators, \"n_features\": int(X.shape[1]),\n                     \
+          \      \"data_md5\": clean_data.metadata.get(\"md5\", \"\"),\n         \
+          \                  \"fit_seconds\": round(fit_seconds, 2)})\n\n    if mlflow_tracking_uri:\n\
+          \        import mlflow\n        from sklearn.metrics import accuracy_score,\
+          \ f1_score\n        mlflow.set_tracking_uri(mlflow_tracking_uri)\n     \
+          \   mlflow.set_experiment(\"StayGuard\")  # same experiment as src/train.py\
+          \ runs\n        with mlflow.start_run(run_name=\"rf__kfp_pipeline\") as\
+          \ run:\n            mlflow.set_tags({\"source\": \"kfp_pipeline\", \"model_family\"\
+          : \"rf\",\n                             \"data_md5\": clean_data.metadata.get(\"\
+          md5\", \"\")})\n            mlflow.log_params({\"seed\": seed, \"n_estimators\"\
+          : n_estimators,\n                               \"n_train\": len(X_tr),\
+          \ \"n_test\": len(X_te),\n                               \"n_features\"\
+          : X.shape[1]})\n            pred = pipe.predict(X_te)\n            mlflow.log_metrics({\"\
+          fit_seconds\": fit_seconds,\n                                \"train_accuracy\"\
+          : accuracy_score(y_tr, pipe.predict(X_tr)),\n                          \
+          \      \"test_accuracy\": accuracy_score(y_te, pred),\n                \
+          \                \"test_f1\": f1_score(y_te, pred, pos_label=1)})\n    \
+          \        model.metadata[\"mlflow_run_id\"] = run.info.run_id\n    print(f\"\
+          training ok: fit {fit_seconds:.1f}s, saved {model.path}/model.joblib\")\n\
+          \n"
+        image: python:3.11-slim
+        resources:
+          cpuLimit: 4.0
+          cpuRequest: 2.0
+          memoryLimit: 8.0
+          memoryRequest: 4.0
+          resourceCpuLimit: '4'
+          resourceCpuRequest: '2'
+          resourceMemoryLimit: 8G
+          resourceMemoryRequest: 4G
+pipelineInfo:
+  description: 'StayGuard: collect -> validate/clean -> train -> evaluate -> (if F1
+    > threshold) deploy'
+  name: stayguard-pipeline
+root:
+  dag:
+    tasks:
+      condition-1:
+        componentRef:
+          name: comp-condition-1
+        dependentTasks:
+        - evaluation
+        - training
+        inputs:
+          artifacts:
+            pipelinechannel--training-model:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: training
+          parameters:
+            pipelinechannel--deploy_mode:
+              componentInputParameter: deploy_mode
+            pipelinechannel--evaluation-f1:
+              taskOutputParameter:
+                outputParameterKey: f1
+                producerTask: evaluation
+            pipelinechannel--f1_threshold:
+              componentInputParameter: f1_threshold
+        taskInfo:
+          name: f1-above-threshold
+        triggerPolicy:
+          condition: inputs.parameter_values['pipelinechannel--evaluation-f1'] > inputs.parameter_values['pipelinechannel--f1_threshold']
+      data-collection:
+        cachingOptions: {}
+        componentRef:
+          name: comp-data-collection
+        inputs:
+          parameters:
+            expected_md5:
+              componentInputParameter: expected_md5
+            source_uri:
+              componentInputParameter: source_uri
+        taskInfo:
+          name: Data collection
+      data-validation:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-data-validation
+        dependentTasks:
+        - data-collection
+        inputs:
+          artifacts:
+            raw_data:
+              taskOutputArtifact:
+                outputArtifactKey: raw_data
+                producerTask: data-collection
+          parameters:
+            adr_cap_quantile:
+              componentInputParameter: adr_cap_quantile
+            top_n_countries:
+              componentInputParameter: top_n_countries
+        taskInfo:
+          name: Data validation and cleaning
+      evaluation:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluation
+        dependentTasks:
+        - data-validation
+        - training
+        inputs:
+          artifacts:
+            clean_data:
+              taskOutputArtifact:
+                outputArtifactKey: clean_data
+                producerTask: data-validation
+            model:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: training
+          parameters:
+            seed:
+              componentInputParameter: seed
+        taskInfo:
+          name: Evaluation
+      training:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-training
+        dependentTasks:
+        - data-validation
+        inputs:
+          artifacts:
+            clean_data:
+              taskOutputArtifact:
+                outputArtifactKey: clean_data
+                producerTask: data-validation
+          parameters:
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            n_estimators:
+              componentInputParameter: n_estimators
+            seed:
+              componentInputParameter: seed
+        taskInfo:
+          name: Training (RandomForest)
+  inputDefinitions:
+    parameters:
+      adr_cap_quantile:
+        defaultValue: 0.995
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      deploy_mode:
+        defaultValue: dry_run
+        isOptional: true
+        parameterType: STRING
+      expected_md5:
+        defaultValue: 5bf588c5a949443e021fb7c847d31b27
+        isOptional: true
+        parameterType: STRING
+      f1_threshold:
+        defaultValue: 0.6
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      mlflow_tracking_uri:
+        defaultValue: ''
+        isOptional: true
+        parameterType: STRING
+      n_estimators:
+        defaultValue: 200.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      seed:
+        defaultValue: 42.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      source_uri:
+        parameterType: STRING
+      top_n_countries:
+        defaultValue: 10.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.1

@@ -42,7 +42,11 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 | feature_repo/ | Feast repo: feature_store.yaml (local, sqlite online, file offline, key serialization v3), features.py (Entity booking_id, FileSource, FeatureView booking_features = lead_time/adr/previous_cancellations with ttl 0, FeatureService stayguard_model_v1). data/ holds generated parquet + registry.db/online_store.db (gitignored, .gitkeep kept) | 4 |
 | src/feast_features.py | CLI `python -m src.feast_features prepare / demo / training-frame`; demo writes reports_data/feast_demo.txt. Run `feast apply` and `feast materialize 2015-07-01T00:00:00 2017-09-01T00:00:00` from feature_repo/ between prepare and demo | 4 |
 | report/feast.md | Phase 4 write-up with captured outputs | 4 |
-| pipeline/kfp_pipeline.py | KFP pipeline | 5 |
+| pyproject.toml | makes repo pip-installable as `stayguard` (packages=["src"]; minimal deps pandas/numpy/sklearn==1.6.1/joblib/pyyaml; extra `mlflow`). `uv pip install --python .venv -e .` | 5 |
+| src/models.py | `build_models(n_estimators, seed)`, `split_xy`, TEST_SIZE; no mlflow imports (train.py imports from here) | 5 |
+| pipeline/kfp_pipeline.py | KFP v2 pipeline: 5 `@dsl.component`s + `dsl.If` on F1; `compile [--ref]` -> pipeline/stayguard_pipeline.yaml (committed). Cluster components pip-install the repo from a GitHub archive URL at the ref (no git in python:3.11-slim); `build_pipeline([])` = local build with no pip | 5 |
+| pipeline/run_local.py | `--mode kfp-local` (kfp.local SubprocessRunner, with in-process Windows path + dsl.If evaluator patches) or `--mode simulate` (plain python); outputs in pipeline/local_runs/ (gitignored) | 5 |
+| report/kubeflow.md, kubeflow_dag.mmd/.png | Phase 5 write-up, DAG, captured runs | 5 |
 | deploy/deploy_vertex.py | deploy model to Vertex endpoint | 6 |
 | deploy/predict_sample.py | sample endpoint request | 6 |
 | deploy/teardown.py | delete Vertex resources | 6 |
@@ -58,5 +62,9 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 - ttl=timedelta(0) = no lookback limit in PIT joins. Feast 0.66's SQLite online read does NOT apply ttl (verified with 3650d). Use `feast materialize <start> <end>`, not materialize-incremental (its first window is now-ttl or 1 year)
 - File (=Dask) offline store 0.66 drops an entity row whose only feature rows are after its timestamp (dask.py `_merge` left-joins on key only, then `_filter_ttl` removes the future candidate); unknown keys get NaN rows. Check row counts after get_historical_features
 - `feast` CLI must run in feature_repo/ (or `-c feature_repo`); the python helper uses an absolute repo_path
+
+## Pipeline notes
+- Pipeline is NOT run on any cluster. kfp 2.16 local runner on Windows needs `sh` on PATH plus the patches in run_local.py; its stock ConditionEvaluator (any OS) cannot evaluate a dsl.If on task outputs and silently skips the gated step (kfp bug, reproduced with a minimal one-component pipeline)
+- Local modes reproduce clean md5 0bd1d207... and RF F1 0.6767003676470589; `python -m src.train`/`evaluate` still work (build_models moved to src/models.py)
 
 Update this file when a module moves or changes job.

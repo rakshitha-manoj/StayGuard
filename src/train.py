@@ -28,32 +28,16 @@ import mlflow
 import mlflow.sklearn
 import numpy as np
 from mlflow.models import infer_signature
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score,
                              recall_score, roc_auc_score)
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC
 
 from src.datasets import DATA_VERSIONS, load_dataset
+from src.models import TEST_SIZE, build_models, split_xy
 from src.utils import (MLFLOW_ARTIFACT_ROOT, MLFLOW_EXPERIMENT, MLFLOW_TRACKING_URI, SEED,
                        set_seed)
 
-TEST_SIZE = 0.2
 KNN_TRAIN_ACC_SAMPLE = 10_000
-
-
-def build_models() -> dict[str, Pipeline]:
-    return {
-        "rf": Pipeline([("clf", RandomForestClassifier(
-            n_estimators=200, max_depth=None, min_samples_leaf=1, n_jobs=-1, random_state=SEED))]),
-        "svm": Pipeline([("scaler", StandardScaler()),
-                         ("clf", LinearSVC(C=1.0, max_iter=5000, random_state=SEED, dual="auto"))]),
-        "knn": Pipeline([("scaler", StandardScaler()),
-                         ("clf", KNeighborsClassifier(n_neighbors=15, weights="uniform", n_jobs=-1))]),
-    }
 
 
 def setup_mlflow() -> None:
@@ -161,7 +145,7 @@ def main() -> None:
     setup_mlflow()
     for version in versions:
         X, y, meta = load_dataset(version)
-        X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=TEST_SIZE, random_state=SEED, stratify=y)
+        X_tr, X_te, y_tr, y_te = split_xy(X, y, SEED)
         split = dict(X_tr=X_tr, X_te=X_te, y_tr=y_tr, y_te=y_te)
         print(f"== {version}: {X.shape}, train {len(X_tr)}, test {len(X_te)}, md5 {meta['data_md5']}",
               flush=True)
