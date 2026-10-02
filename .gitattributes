@@ -1,0 +1,7 @@
+# Keep LF in every working tree. dvc.lock hashes the src/*.py deps byte-for-byte,
+# so a CRLF checkout (core.autocrlf=true on Windows) would make dvc status/repro
+# see every code dependency as modified in a fresh clone.
+* text=auto eol=lf
+*.png binary
+*.pkl binary
+*.joblib binary
