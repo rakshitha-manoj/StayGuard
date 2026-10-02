@@ -1,5 +1,5 @@
 {
-  "run_id": "dce897ff32834237b24e55ccb77bf64b",
+  "run_id": "d1b8e2e5e15b49a88f6541a826288f06",
   "run_name": "rf__v2-clean",
   "model": "rf",
   "data_version": "v2-clean",
@@ -10,8 +10,8 @@
     "test_precision": 0.743311458859162,
     "test_recall": 0.621045972163644,
     "test_f1": 0.6767003676470589,
-    "test_roc_auc": 0.8932576826189105,
-    "fit_seconds": 17.607176299992716
+    "test_roc_auc": 0.893257648611253,
+    "fit_seconds": 16.180963399994653
   },
   "n_features": 69,
   "feature_columns": [

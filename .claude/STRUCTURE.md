@@ -37,7 +37,7 @@ Goal: predict `is_canceled` (Kaggle Hotel booking demand). dvc.yaml pipeline: va
 | src/train.py | CLI `python -m src.train [--data-version v1-raw/v2-clean/all]`: RF / StandardScaler+LinearSVC / StandardScaler+KNN pipelines, 6 MLflow runs `<model>__<version>` | 3 |
 | src/evaluate.py | CLI `python -m src.evaluate`: latest run per pair -> report/mlflow_comparison.{csv,md}, charts, best v2-clean model by test F1 -> models/model.joblib + models/best_model.json + registry "StayGuard" | 3 |
 | report/mlflow_results.md | Phase 3 write-up and UI instructions | 3 |
-| models/ | model.joblib (gitignored, ~410 MB), best_model.json (committed metadata) | 3 |
+| models/ | model.joblib (gitignored, ~65 MB, joblib compress=3), best_model.json (committed metadata) | 3 |
 | src/monitor.py | drift / performance monitoring | 6 |
 | feature_repo/ | Feast definitions | 4 |
 | pipeline/kfp_pipeline.py | KFP pipeline | 5 |
