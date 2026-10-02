@@ -109,7 +109,9 @@ def main() -> None:
     best = df[df.data_version == "v2-clean"].sort_values("test_f1", ascending=False).iloc[0]
     print(f"Best (v2-clean, test F1): {best.run_name} ({best.run_id}) F1={best.test_f1:.4f}")
     pipe = mlflow.sklearn.load_model(f"runs:/{best.run_id}/model")
-    joblib.dump(pipe, MODELS_DIR / "model.joblib")
+    # compress=3 shrinks the 200-tree RF from ~410 MB to ~65 MB with identical predictions,
+    # which keeps the Vertex AI upload small.
+    joblib.dump(pipe, MODELS_DIR / "model.joblib", compress=3)
 
     X, y, meta = load_dataset("v2-clean")
     _, X_te, _, y_te = train_test_split(X, y, test_size=TEST_SIZE, random_state=SEED, stratify=y)
