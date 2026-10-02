@@ -21,7 +21,7 @@ MONTHS = {m: i for i, m in enumerate(
     ["January", "February", "March", "April", "May", "June", "July",
      "August", "September", "October", "November", "December"], start=1)}
 CATEGORICALS = ["hotel", "meal", "country", "market_segment", "distribution_channel",
-                "reserved_room_type", "assigned_room_type", "deposit_type", "customer_type"]
+                "reserved_room_type", "deposit_type", "customer_type"]
 
 
 def preprocess(df: pd.DataFrame, params: dict, log: dict | None = None) -> pd.DataFrame:
@@ -34,7 +34,8 @@ def preprocess(df: pd.DataFrame, params: dict, log: dict | None = None) -> pd.Da
     log["rows_in"] = len(df)
     df = df.copy()
 
-    # 1. Drop target-leaking columns (only known after the outcome).
+    # 1. Drop target-leaking columns (only known after the outcome; assigned_room_type
+    #    is set at check-in, see LEAKY_COLUMNS).
     df = df.drop(columns=[c for c in LEAKY_COLUMNS if c in df.columns])
 
     # 2. Impute: no children recorded -> 0; missing country -> "Unknown".
@@ -84,6 +85,14 @@ def preprocess(df: pd.DataFrame, params: dict, log: dict | None = None) -> pd.Da
     features = sorted(c for c in df.columns if c != TARGET)
     df = df[features + [TARGET]].reset_index(drop=True)
 
+    # 10. LAST step: drop exact duplicate rows on the final encoded frame (features +
+    #     target), keep first, so identical rows cannot land in both train and test and
+    #     inflate test metrics (evaluation integrity). Caveat: some duplicates are
+    #     legitimate repeated group bookings; we trade a little data for honest metrics.
+    n = len(df)
+    df = df.drop_duplicates(keep="first").reset_index(drop=True)
+    log["removed_duplicate_rows"] = n - len(df)
+
     log["rows_out"] = len(df)
     log["columns_out"] = df.shape[1]
     return df
@@ -95,9 +104,9 @@ def main() -> None:
     log: dict = {}
     out = preprocess(load_raw(RAW_FILE), cfg, log)
     DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
-    out.to_csv(OUT_FILE, index=False)
+    out.to_csv(OUT_FILE, index=False, lineterminator="\n")  # LF: same md5 on Windows and Linux
     REPORTS_DIR.mkdir(exist_ok=True)
-    LOG_FILE.write_text(json.dumps(log, indent=2))
+    LOG_FILE.write_text(json.dumps(log, indent=2), newline="\n")
     print(json.dumps(log, indent=2))
     print(f"wrote {OUT_FILE} shape={out.shape}")
 

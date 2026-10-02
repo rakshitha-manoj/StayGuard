@@ -17,7 +17,8 @@
     "duplicate_rows": 31994,
     "leaky_columns_present": [
       "reservation_status",
-      "reservation_status_date"
+      "reservation_status_date",
+      "assigned_room_type"
     ]
   }
 }

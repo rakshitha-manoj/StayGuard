@@ -17,8 +17,10 @@ from src.ingest import EXPECTED_COLUMNS, RAW_FILE, load_raw
 from src.utils import DATA_PROCESSED, PROJECT_ROOT
 
 TARGET = "is_canceled"
-# Known target leakage: both are only known after the booking outcome.
-LEAKY_COLUMNS = ["reservation_status", "reservation_status_date"]
+# Known target leakage. reservation_status(_date) are only known after the booking
+# outcome. assigned_room_type is set at check-in: where it differs from the reserved
+# type (14,917 rows) the cancel rate is 5.4% vs 41.6% when equal, so it leaks the label.
+LEAKY_COLUMNS = ["reservation_status", "reservation_status_date", "assigned_room_type"]
 ADR_CAP_QUANTILE = 0.995  # same default as params.yaml preprocess.adr_cap_quantile
 REPORTS_DIR = PROJECT_ROOT / "reports_data"
 CLEAN_FILE = DATA_PROCESSED / "hotel_bookings_clean.csv"
@@ -97,7 +99,9 @@ def validate_clean(df: pd.DataFrame) -> dict:
     n_nulls = int(df.isna().sum().sum())
     if n_nulls:
         failures.append(f"{n_nulls} null values present")
-    leaky = [c for c in LEAKY_COLUMNS if c in df.columns]
+    # also catches one-hot leftovers such as assigned_room_type_A
+    leaky = [c for c in df.columns
+             if c in LEAKY_COLUMNS or any(c.startswith(f"{l}_") for l in LEAKY_COLUMNS)]
     if leaky:
         failures.append(f"leaky columns present: {leaky}")
     if "adr" in df.columns and (df["adr"] < 0).any():
@@ -107,6 +111,10 @@ def validate_clean(df: pd.DataFrame) -> dict:
             failures.append(f"{int((df['total_guests'] == 0).sum())} rows with zero total_guests")
     else:
         failures.append("column 'total_guests' is missing")
+    # Evaluation integrity: identical rows must not straddle a train/test split.
+    n_dup = int(df.duplicated().sum())
+    if n_dup:
+        failures.append(f"{n_dup} duplicate rows present")
     non_numeric = [c for c in df.columns if not pd.api.types.is_numeric_dtype(df[c])]
     if non_numeric:
         failures.append(f"non-numeric columns: {non_numeric}")
@@ -119,6 +127,7 @@ def validate_clean(df: pd.DataFrame) -> dict:
         "rows": int(len(df)),
         "columns": int(df.shape[1]),
         "nulls": 0,
+        "duplicate_rows": 0,
         "cancel_rate": float(df[TARGET].mean()),
     }
 
@@ -135,10 +144,10 @@ def main() -> int:
         else:
             report = validate_clean(pd.read_csv(CLEAN_FILE))
     except DataValidationError as e:
-        out.write_text(json.dumps({"stage": args.stage, "passed": False, "error": str(e)}, indent=2))
+        out.write_text(json.dumps({"stage": args.stage, "passed": False, "error": str(e)}, indent=2), newline="\n")
         print(e, file=sys.stderr)
         return 1
-    out.write_text(json.dumps(report, indent=2))
+    out.write_text(json.dumps(report, indent=2), newline="\n")  # LF on every OS
     print(json.dumps(report, indent=2))
     return 0
 

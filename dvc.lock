@@ -13,13 +13,13 @@ stages:
       size: 1651
     - path: src/validate.py
       hash: md5
-      md5: eb57fe60ca3ccbc64ff3ed8e37fc5711
-      size: 5686
+      md5: 2a5f002a13c17d30ac3b8ce019f4765d
+      size: 6294
     outs:
     - path: reports_data/validation_raw.json
       hash: md5
-      md5: 4176b9346d1ec5b6f6b682daa0a070e1
-      size: 482
+      md5: 66f69296416507c013e301e3f45ab6f7
+      size: 488
   preprocess:
     cmd: python -m src.preprocess
     deps:
@@ -33,16 +33,16 @@ stages:
       size: 1651
     - path: src/preprocess.py
       hash: md5
-      md5: 158cdb44e556c68456c14e76a0cfdc7a
-      size: 4475
+      md5: f2acc6c1ac6dbb11480a6ae974f4bbab
+      size: 5068
     - path: src/utils.py
       hash: md5
       md5: e293d8df004977759af87b1518a5d8cf
       size: 553
     - path: src/validate.py
       hash: md5
-      md5: eb57fe60ca3ccbc64ff3ed8e37fc5711
-      size: 5686
+      md5: 2a5f002a13c17d30ac3b8ce019f4765d
+      size: 6294
     params:
       params.yaml:
         preprocess:
@@ -52,25 +52,25 @@ stages:
     outs:
     - path: data/processed/hotel_bookings_clean.csv
       hash: md5
-      md5: aa03ef7c745ab4140676e5fc7b957a7f
-      size: 20588917
+      md5: 0bd1d2070641efd38a0d1f526532b8da
+      size: 12824648
     - path: reports_data/preprocess_log.json
       hash: md5
-      md5: f0272fecee972db3597fbca6335ad2d7
-      size: 409
+      md5: 8caad3f8b245d46685e60ff6d1557ac0
+      size: 421
   validate_clean:
     cmd: python -m src.validate --stage clean
     deps:
     - path: data/processed/hotel_bookings_clean.csv
       hash: md5
-      md5: aa03ef7c745ab4140676e5fc7b957a7f
-      size: 20588917
+      md5: 0bd1d2070641efd38a0d1f526532b8da
+      size: 12824648
     - path: src/validate.py
       hash: md5
-      md5: eb57fe60ca3ccbc64ff3ed8e37fc5711
-      size: 5686
+      md5: 2a5f002a13c17d30ac3b8ce019f4765d
+      size: 6294
     outs:
     - path: reports_data/validation_clean.json
       hash: md5
-      md5: 6c03650c4d1e8b9b55de25aba964fe64
-      size: 134
+      md5: f802010cc2fb86ba0cdc7d57e3672325
+      size: 148

@@ -1,8 +1,9 @@
 {
   "stage": "clean",
   "passed": true,
-  "rows": 119209,
-  "columns": 81,
+  "rows": 85716,
+  "columns": 70,
   "nulls": 0,
-  "cancel_rate": 0.37076898556317056
+  "duplicate_rows": 0,
+  "cancel_rate": 0.2766228008773158
 }

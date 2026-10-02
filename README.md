@@ -57,6 +57,8 @@ Six-stage lifecycle design, stage table and diagram: [report/lifecycle.md](repor
 
 Raw data is tagged `v1-raw`; the cleaned output of the DVC pipeline is tagged `v2-clean`. Pipeline stages (`dvc.yaml`): `validate_raw` -> `preprocess` -> `validate_clean`, parameters in `params.yaml`, machine-generated JSON in `reports_data/`.
 
+`v2-clean` is 85,716 rows x 70 columns (md5 `0bd1d2070641efd38a0d1f526532b8da`), all numeric. Preprocessing drops the leaky columns `reservation_status`, `reservation_status_date` and `assigned_room_type` (set at check-in), and finally drops exact duplicate rows (33,493) so identical rows cannot straddle a train/test split; this trades some legitimate repeated group bookings for honest test metrics. The CSV and JSON outputs are written with LF endings, so hashes match on Windows and Linux.
+
 ```powershell
 .venv\Scripts\Activate.ps1   # stages call plain `python`
 dvc pull                     # fetch data from the GCS remote
